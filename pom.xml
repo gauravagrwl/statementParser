@@ -11,7 +11,7 @@
 	<groupId>dev.gauravagrwl</groupId>
 	<artifactId>statementParser</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>statementParser</name>
+	<name>Statement Parser</name>
 	<description>Bank Statement Parser</description>
 	<properties>
 		<java.version>1.8</java.version>
