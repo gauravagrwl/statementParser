@@ -25,11 +25,13 @@ import org.xml.sax.SAXException;
 
 import com.beust.jcommander.internal.Lists;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
 
+import dev.gauravagrwl.statementParser.model.Transaction;
 import dev.gauravagrwl.statementParser.model.TransactionDetails;
 import dev.gauravagrwl.statementParser.parser.BankTypeOne;
 
@@ -39,10 +41,13 @@ public class StatementUploadController {
 	
 	@Autowired
 	private BankTypeOne statementParser;
+	
+	//TODO: Add paramter for desired file type produce.
 
 	@RequestMapping(path = "/singlefileupload/", method = RequestMethod.POST, produces = MediaType.ALL_VALUE)
 	public ResponseEntity<String> processFile(@RequestParam("file") MultipartFile file)
 			throws IOException, SAXException, TikaException {
+		
 		InputStream inputStream =  new BufferedInputStream(file.getInputStream());
 		System.out.println("File Name: " + file.getOriginalFilename());
 		String year = StringUtils.left(file.getOriginalFilename(), 4);
@@ -54,8 +59,12 @@ public class StatementUploadController {
 		TransactionDetails parse = statementParser.parse(data, year);
 		
 		ObjectMapper mapper = JsonMapper.builder()
+				.addModule(new ParameterNamesModule())
+				   .addModule(new Jdk8Module())
 				   .addModule(new JavaTimeModule())
 				   .build();
+		
+		mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 		
 		String jsonString = mapper.writeValueAsString(parse);
 		HttpHeaders headers = new HttpHeaders();
@@ -67,6 +76,8 @@ public class StatementUploadController {
 	@RequestMapping(path = "/multiplefileupload/", method = RequestMethod.POST, produces = MediaType.ALL_VALUE)
 	public ResponseEntity<String> processFile(@RequestParam("files") List<MultipartFile> files) throws IOException, SAXException, TikaException {
 		List<TransactionDetails> details = Lists.newArrayList();
+		List<Transaction> transactions = Lists.newArrayList();
+		TransactionDetails detail = new TransactionDetails(); 
 		for (MultipartFile file : files) {
 			System.out.println("File Name: " + file.getOriginalFilename());
 			String year = StringUtils.left(file.getOriginalFilename(), 4);
@@ -78,13 +89,17 @@ public class StatementUploadController {
 			String data = contenthandler.toString();
 			TransactionDetails parse = statementParser.parse(data, year);
 			details.add(parse);
+			transactions.addAll(parse.getTransaction());
+			
 		}
 		ObjectMapper mapper = JsonMapper.builder()
 				.addModule(new ParameterNamesModule())
 				   .addModule(new Jdk8Module())
 				   .addModule(new JavaTimeModule())
 				   .build();
-		String jsonString = mapper.writeValueAsString(details);
+		detail.setTransaction(transactions);
+		mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+		String jsonString = mapper.writeValueAsString(detail);
 		HttpHeaders headers = new HttpHeaders();
 	    headers.setContentType(MediaType.APPLICATION_JSON);
 		return new ResponseEntity<>(
